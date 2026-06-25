@@ -1,16 +1,15 @@
 import "dotenv/config";
 import express from "express";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import mongoose from "mongoose";
 import path from "path";
 
 const app = express();
 const port = Number(process.env.PORT || 8787);
 
-// Initialize the Gemini client
-// Note: GoogleGenAI automatically picks up process.env.GEMINI_API_KEY, but we pass it explicitly just in case.
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-const MODEL = "gemini-2.5-flash";
+// Initialize the classic Gemini client
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const MODEL = "gemini-1.5-flash";
 
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(process.cwd(), "dist")));
@@ -174,15 +173,13 @@ app.post("/api/transcribe", async (req, res) => {
             return res.status(400).json({ error: "No audio data provided" });
         }
 
-        const response = await ai.models.generateContent({
-            model: MODEL,
-            contents: [
-                { text: "Transcribe the following audio accurately. Output ONLY the transcribed text without any conversational filler or markdown." },
-                { inlineData: { data: audioBase64, mimeType: mimeType || 'audio/webm' } }
-            ]
-        });
+        const model = genAI.getGenerativeModel({ model: MODEL });
+        const response = await model.generateContent([
+            { text: "Transcribe the following audio accurately. Output ONLY the transcribed text without any conversational filler or markdown." },
+            { inlineData: { data: audioBase64, mimeType: mimeType || 'audio/webm' } }
+        ]);
 
-        res.json({ text: response.text });
+        res.json({ text: response.response.text() });
     } catch (error) {
         console.error("Transcription Error:", error);
         res.status(500).json({ error: "Failed to transcribe audio." });
@@ -224,11 +221,9 @@ app.post("/api/chat", async (req, res) => {
     // Background Memory Extraction
     const extractPromise = (async () => {
         try {
-            const memResponse = await ai.models.generateContent({
-                model: MODEL,
-                contents: [{ text: `Analyze this user message: "${lastUserMessage}". Did the user state a new, permanent fact about themselves (e.g., name, preference, project, detail, possession)? If yes, reply ONLY with the extracted fact written in third person (e.g., "The Boss's favorite color is blue"). If no, reply EXACTLY with the word "NONE". Do not include quotes or formatting.` }]
-            });
-            const fact = memResponse.text.trim();
+            const memModel = genAI.getGenerativeModel({ model: MODEL });
+            const memResponse = await memModel.generateContent(`Analyze this user message: "${lastUserMessage}". Did the user state a new, permanent fact about themselves (e.g., name, preference, project, detail, possession)? If yes, reply ONLY with the extracted fact written in third person (e.g., "The Boss's favorite color is blue"). If no, reply EXACTLY with the word "NONE". Do not include quotes or formatting.`);
+            const fact = memResponse.response.text().trim();
             if (fact && fact.toUpperCase() !== "NONE" && fact.length > 5) {
                 saveMemory(fact);
                 return fact; 
@@ -239,18 +234,20 @@ app.post("/api/chat", async (req, res) => {
         return null;
     })();
 
-    const responseStream = await ai.models.generateContentStream({
+    const chatModel = genAI.getGenerativeModel({ 
         model: MODEL,
-        contents: geminiContents,
-        config: {
-            systemInstruction: memoryPrompt,
-            temperature: 0.7,
-        }
+        systemInstruction: memoryPrompt
     });
 
-    for await (const chunk of responseStream) {
-        if (chunk.text) {
-             res.write(`data: ${JSON.stringify({ text: chunk.text })}\n\n`);
+    const responseStream = await chatModel.generateContentStream({
+        contents: geminiContents,
+        generationConfig: { temperature: 0.7 }
+    });
+
+    for await (const chunk of responseStream.stream) {
+        const text = chunk.text();
+        if (text) {
+             res.write(`data: ${JSON.stringify({ text })}\n\n`);
         }
     }
     
