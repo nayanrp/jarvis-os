@@ -8,7 +8,7 @@ const app = express();
 const port = Number(process.env.PORT || 8787);
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-const MODEL = "gemini-2.5-flash";
+const MODEL = "gemini-1.5-flash";
 
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(process.cwd(), "dist")));
