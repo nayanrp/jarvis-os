@@ -195,7 +195,7 @@ app.post("/api/chat", async (req, res) => {
 });
 
 // Serve React Frontend
-app.get("*", (req, res) => {
+app.use((req, res) => {
     res.sendFile(path.join(process.cwd(), "dist", "index.html"));
 });
 
