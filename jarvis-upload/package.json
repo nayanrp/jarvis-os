@@ -1,0 +1,25 @@
+{
+  "name": "jarvis-assistant",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm:server\" \"npm:client\"",
+    "client": "vite --host 127.0.0.1",
+    "server": "node server/index.js",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1"
+  },
+  "dependencies": {
+    "@google/genai": "^2.10.0",
+    "@vitejs/plugin-react": "latest",
+    "concurrently": "latest",
+    "dotenv": "^17.4.2",
+    "express": "latest",
+    "lucide-react": "latest",
+    "mongoose": "^9.7.2",
+    "react": "latest",
+    "react-dom": "latest",
+    "vite": "latest"
+  }
+}
