@@ -221,18 +221,21 @@ function App() {
       
       let done = false;
       let fullResponseText = "";
+      let buffer = "";
 
       while (!done) {
           const { value, done: readerDone } = await reader.read();
           done = readerDone;
           
           if (value) {
-              const chunk = decoder.decode(value, { stream: true });
-              const lines = chunk.split('\n').filter(line => line.trim() !== '');
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split('\n');
+              buffer = lines.pop(); // Keep the last incomplete line in the buffer
               
               for (const line of lines) {
+                  if (line.trim() === '') continue;
                   if (line.startsWith('data: ')) {
-                      const dataStr = line.replace('data: ', '');
+                      const dataStr = line.substring(6);
                       if (dataStr === '[DONE]') {
                           done = true;
                           break;
@@ -263,9 +266,7 @@ function App() {
                               });
                           }
                       } catch (e) {
-                          if (e.message !== "Unexpected end of JSON input") {
-                              throw e; // Propagate the error so the outer catch handles it
-                          }
+                          console.error("JSON parse error on chunk:", dataStr, e);
                       }
                   }
               }
