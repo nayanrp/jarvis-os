@@ -244,7 +244,17 @@ function App() {
                       try {
                           const parsed = JSON.parse(dataStr);
                           if (parsed.error) {
-                              throw new Error(parsed.error);
+                              setMessages(current => {
+                                  const updated = [...current];
+                                  updated[updated.length - 1] = { 
+                                      role: "assistant", 
+                                      content: `[SYSTEM FAULT: ${typeof parsed.error === 'string' ? parsed.error : JSON.stringify(parsed.error)}]`,
+                                      isError: true 
+                                  };
+                                  return updated;
+                              });
+                              done = true;
+                              break;
                           }
                           if (parsed.memorySaved) {
                               setMessages(current => {
